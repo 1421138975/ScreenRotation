@@ -11,37 +11,42 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.provider.Settings;
+import android.util.Log;
 
 /**
  * @author Pinger
- * 屏幕根据重力感应旋转的工具类
- *
- * ================= API ================
- * isLandscape()   当前屏幕朝向是否为横屏
- * toggleRotate()  点击全屏按钮时调用，自动横竖屏
- *
- *
- * ============== 使用教程 ==============
- * 1，在绑定的Activity中的onCreate()方法中初始化，获取实例对象
- * 2，Activity的onResume()方法调用start()方法进行注册监听
- * 3，Activity的onPause()方法调用stop()方法注销监听
- * 4，点击全屏按钮时调用toggleRotate()自动切换横竖屏
+ *         屏幕根据重力感应旋转的工具类
+ *         <p>
+ *         ================= API ================
+ *         isLandscape()   当前屏幕朝向是否为横屏
+ *         toggleRotate()  点击全屏按钮时调用，自动横竖屏
+ *         <p>
+ *         <p>
+ *         ============== 使用教程 ==============
+ *         1，在绑定的Activity中的onCreate()方法中初始化，获取实例对象
+ *         2，Activity的onResume()方法调用start()方法进行注册监听
+ *         3，Activity的onPause()方法调用stop()方法注销监听
+ *         4，点击全屏按钮时调用toggleRotate()自动切换横竖屏
  */
 
 public class ScreenRotateUtil {
     private static final String TAG = ScreenRotateUtil.class.getSimpleName();
 
-    private ScreenRotateUtil(){}
+    private ScreenRotateUtil() {
+    }
+
     private static ScreenRotateUtil mInstance;
 
     private Activity mActivity;
     private boolean isClickFullScreen;        // 记录全屏按钮的状态，默认false
     private boolean isOpenSensor = true;      // 是否打开传输，默认打开
     private boolean isLandscape = false;      // 默认是竖屏
+    private boolean isChangeOrientation = true;  // 记录点击全屏后屏幕朝向是否改变，默认会自动切换
 
     private SensorManager sm;
     private OrientationSensorListener listener;
     private Sensor sensor;
+
 
     /**
      * 接收重力感应监听的结果，来改变屏幕朝向
@@ -75,6 +80,7 @@ public class ScreenRotateUtil {
 
     /**
      * 初始化，获取实例
+     *
      * @param context
      * @return
      */
@@ -91,6 +97,7 @@ public class ScreenRotateUtil {
 
     /**
      * 初始化重力感应传感器
+     *
      * @param context
      */
     private ScreenRotateUtil(Context context) {
@@ -103,6 +110,7 @@ public class ScreenRotateUtil {
     /**
      * 开启监听
      * 绑定切换横竖屏Activity的生命周期
+     *
      * @param activity
      */
     public void start(Activity activity) {
@@ -121,6 +129,7 @@ public class ScreenRotateUtil {
 
     /**
      * 当前屏幕的朝向，是否是横屏
+     *
      * @return
      */
     public boolean isLandscape() {
@@ -160,7 +169,7 @@ public class ScreenRotateUtil {
                 // 屏幕旋转时
                 float OneEightyOverPi = 57.29577957855f;
                 float angle = (float) Math.atan2(-Y, X) * OneEightyOverPi;
-                orientation = 90 - (int) Math.round(angle);
+                orientation = 90 - Math.round(angle);
                 // normalize to 0 - 359 range
                 while (orientation >= 360) {
                     orientation -= 360;
@@ -188,23 +197,18 @@ public class ScreenRotateUtil {
 
             // 只有点了按钮时才需要根据当前的状态来更新状态
             if (isClickFullScreen) {
-
-                // 之前是横屏，并且当前是竖屏的状态
-                if (isLandscape && (((orientation > 315 && orientation <= 360) || (orientation >= 0 && orientation <= 45))
-                        || (orientation > 135 && orientation <= 225))) {
-
-                    // 屏幕改变了之后进行恢复
-                    isLandscape = false;
-                    isClickFullScreen = false;
-                    isOpenSensor = true;
-                }
-
-                // 之前是竖屏，并且当前是横屏的状态
-                if (!isLandscape && ((orientation > 45 && orientation <= 135) || (orientation > 225 && orientation <= 315))) {
-
-                    isLandscape = true;
-                    isClickFullScreen = false;
-                    isOpenSensor = true;
+                if (isLandscape && screenIsPortrait(orientation)) {           // 之前是横屏，并且当前是竖屏的状态
+                    Log.d(TAG, "onSensorChanged: 横屏 ----> 竖屏");
+                    updateState(false, false, true, true);
+                } else if (!isLandscape && screenIsLandscape(orientation)) {  // 之前是竖屏，并且当前是横屏的状态
+                    Log.d(TAG, "onSensorChanged: 竖屏 ----> 横屏");
+                    updateState(true, false, true, true);
+                } else if (isLandscape && screenIsLandscape(orientation)) {    // 之前是横屏，现在还是横屏的状态
+                    Log.d(TAG, "onSensorChanged: 横屏 ----> 横屏");
+                    isChangeOrientation = false;
+                } else if (!isLandscape && screenIsPortrait(orientation)) {  // 之前是竖屏，现在还是竖屏的状态
+                    Log.d(TAG, "onSensorChanged: 竖屏 ----> 竖屏");
+                    isChangeOrientation = false;
                 }
             }
 
@@ -220,6 +224,43 @@ public class ScreenRotateUtil {
     }
 
     /**
+     * 更新状态
+     *
+     * @param isLandscape         横屏
+     * @param isClickFullScreen   全屏点击
+     * @param isOpenSensor        打开传输
+     * @param isChangeOrientation 朝向改变
+     */
+    private void updateState(boolean isLandscape, boolean isClickFullScreen, boolean isOpenSensor, boolean isChangeOrientation) {
+        this.isLandscape = isLandscape;
+        this.isClickFullScreen = isClickFullScreen;
+        this.isOpenSensor = isOpenSensor;
+        this.isChangeOrientation = isChangeOrientation;
+    }
+
+
+    /**
+     * 当前屏幕朝向是否横屏
+     *
+     * @param orientation
+     * @return
+     */
+    private boolean screenIsLandscape(int orientation) {
+        return ((orientation > 45 && orientation <= 135) || (orientation > 225 && orientation <= 315));
+    }
+
+    /**
+     * 当前屏幕朝向是否竖屏
+     *
+     * @param orientation
+     * @return
+     */
+    private boolean screenIsPortrait(int orientation) {
+        return (((orientation > 315 && orientation <= 360) || (orientation >= 0 && orientation <= 45))
+                || (orientation > 135 && orientation <= 225));
+    }
+
+    /**
      * 旋转的开关，全屏按钮点击时调用
      */
     public void toggleRotate() {
@@ -232,34 +273,41 @@ public class ScreenRotateUtil {
 
             // 如果用户禁用掉了重力感应就直接切换
             if (isRotate == 0) {
-                if (isLandscape) {
-                    // 切换成竖屏
-                    isLandscape = false;
-                    mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-                } else {
-                    // 切换成横屏
-                    isLandscape = true;
-                    mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-                }
+                changeOrientation(isLandscape, true);
                 return;
             }
         } catch (Settings.SettingNotFoundException e) {
             e.printStackTrace();
         }
 
-
         /**
          * 如果开启了重力感应就需要修改状态
          */
         isOpenSensor = false;
         isClickFullScreen = true;
+        if (isChangeOrientation) {
+            changeOrientation(isLandscape, false);
+        } else {
+            isLandscape = !isLandscape;
+            changeOrientation(isLandscape, false);
+        }
+    }
+
+    /**
+     * 根据朝向来改变屏幕朝向
+     *
+     * @param isLandscape
+     * @param isNeedChangeOrientation 是否需要改变判断值
+     */
+    private void changeOrientation(boolean isLandscape, boolean isNeedChangeOrientation) {
         if (isLandscape) {
-            // 这里不需要更改状态，在Sensor里会进行更改
             // 切换成竖屏
             mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            if (isNeedChangeOrientation) this.isLandscape = false;
         } else {
             // 切换成横屏
             mActivity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            if (isNeedChangeOrientation) this.isLandscape = true;
         }
     }
 
