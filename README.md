@@ -204,3 +204,8 @@
 ### 四、总结
 > 关于重力感应横竖屏其实并不是很难，根据实际的需求去做，一步一步考虑逻辑。
 这个工具类也基本上是没用什么bug，也可以直接拿去用。如果对你有用可以到我的[Github](https://github.com/PingerOne/ScreenRotation)给个star哦，有什么问题欢迎issues哦。
+
+
+
+[我的主页](http://www.jianshu.com/u/64f479a1cef7)
+[Demo下载](https://github.com/PingerOne/ScreenRotation)
