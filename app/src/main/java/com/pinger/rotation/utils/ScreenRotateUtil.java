@@ -110,7 +110,7 @@ public class ScreenRotateUtil {
     private ScreenRotateUtil(Context context) {
         // 初始化重力感应器
         sm = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-        sensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        sensor = sm.getDefaultSensor(Sensor.TYPE_GRAVITY);
         listener = new OrientationSensorListener(mHandler);
     }
 
