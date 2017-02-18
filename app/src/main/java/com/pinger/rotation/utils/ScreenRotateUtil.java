@@ -15,20 +15,23 @@ import android.util.Log;
 
 /**
  * @author Pinger
- * @since  2017/2/16 上午 11:31
- *
- *         屏幕根据重力感应旋转的工具类
- *         <p>
- *         ================= API ================
- *         isLandscape()   当前屏幕朝向是否为横屏
- *         toggleRotate()  点击全屏按钮时调用，自动横竖屏
- *         <p>
- *         <p>
- *         ============== 使用教程 ==============
- *         1，在绑定的Activity中的onCreate()方法中初始化，获取实例对象
- *         2，Activity的onResume()方法调用start()方法进行注册监听
- *         3，Activity的onPause()方法调用stop()方法注销监听
- *         4，点击全屏按钮时调用toggleRotate()自动切换横竖屏
+ * @since 2017/2/16 上午 11:31
+ * <p>
+ * 屏幕根据重力感应旋转的工具类
+ * <p>
+ * ================= API ================
+ * start()         注册监听
+ * stop()          注销监听
+ * isLandscape()   当前屏幕朝向是否为横屏
+ * setEffetSysSetting(true) 设置系统重力感应按钮是否生效
+ * toggleRotate()  点击全屏按钮时调用，自动横竖屏
+ * <p>
+ * <p>
+ * ============== 使用教程 ==============
+ * 1，Activity的onResume()方法调用start()方法进行注册监听
+ * 2，Activity的onPause()方法调用stop()方法注销监听
+ * 3，点击全屏按钮时调用toggleRotate()自动切换横竖屏
+ * 4，如果需要手机系统的横竖屏按钮生效则调用setEffetSysSetting(true)
  */
 
 public class ScreenRotateUtil {
@@ -44,6 +47,8 @@ public class ScreenRotateUtil {
     private boolean isOpenSensor = true;      // 是否打开传输，默认打开
     private boolean isLandscape = false;      // 默认是竖屏
     private boolean isChangeOrientation = true;  // 记录点击全屏后屏幕朝向是否改变，默认会自动切换
+
+    private boolean isEffetSysSetting = false;   // 手机系统的重力感应设置是否生效，默认无效，想要生效改成true就好了
 
     private SensorManager sm;
     private OrientationSensorListener listener;
@@ -86,7 +91,7 @@ public class ScreenRotateUtil {
      * @param context
      * @return
      */
-    public static ScreenRotateUtil init(Context context) {
+    public static ScreenRotateUtil getInstance(Context context) {
         if (mInstance == null) {
             synchronized (ScreenRotateUtil.class) {
                 if (mInstance == null) {
@@ -108,36 +113,6 @@ public class ScreenRotateUtil {
         sensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         listener = new OrientationSensorListener(mHandler);
     }
-
-    /**
-     * 开启监听
-     * 绑定切换横竖屏Activity的生命周期
-     *
-     * @param activity
-     */
-    public void start(Activity activity) {
-        mActivity = activity;
-        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI);
-    }
-
-    /**
-     * 注销监听
-     */
-    public void stop() {
-        sm.unregisterListener(listener);
-        mActivity = null;  // 防止内存泄漏
-    }
-
-
-    /**
-     * 当前屏幕的朝向，是否是横屏
-     *
-     * @return
-     */
-    public boolean isLandscape() {
-        return this.isLandscape;
-    }
-
 
     /**
      * 重力感应监听者
@@ -187,13 +162,15 @@ public class ScreenRotateUtil {
              * screenchange = 1 表示开启，screenchange = 0 表示禁用
              * 要是禁用了就直接返回
              */
-            try {
-                int isRotate = Settings.System.getInt(mActivity.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION);
+            if(isEffetSysSetting){
+                try {
+                    int isRotate = Settings.System.getInt(mActivity.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION);
 
-                // 如果用户禁用掉了重力感应就直接return
-                if (isRotate == 0) return;
-            } catch (Settings.SettingNotFoundException e) {
-                e.printStackTrace();
+                    // 如果用户禁用掉了重力感应就直接return
+                    if (isRotate == 0) return;
+                } catch (Settings.SettingNotFoundException e) {
+                    e.printStackTrace();
+                }
             }
 
 
@@ -263,39 +240,6 @@ public class ScreenRotateUtil {
     }
 
     /**
-     * 旋转的开关，全屏按钮点击时调用
-     */
-    public void toggleRotate() {
-
-        /**
-         * 先判断是否已经开启了重力感应，没开启就直接普通的切换横竖屏
-         */
-        try {
-            int isRotate = Settings.System.getInt(mActivity.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION);
-
-            // 如果用户禁用掉了重力感应就直接切换
-            if (isRotate == 0) {
-                changeOrientation(isLandscape, true);
-                return;
-            }
-        } catch (Settings.SettingNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        /**
-         * 如果开启了重力感应就需要修改状态
-         */
-        isOpenSensor = false;
-        isClickFullScreen = true;
-        if (isChangeOrientation) {
-            changeOrientation(isLandscape, false);
-        } else {
-            isLandscape = !isLandscape;
-            changeOrientation(isLandscape, false);
-        }
-    }
-
-    /**
      * 根据朝向来改变屏幕朝向
      *
      * @param isLandscape
@@ -313,5 +257,79 @@ public class ScreenRotateUtil {
         }
     }
 
+
+    /**
+     * 开启监听
+     * 绑定切换横竖屏Activity的生命周期
+     *
+     * @param activity
+     */
+    public void start(Activity activity) {
+        mActivity = activity;
+        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    /**
+     * 注销监听
+     */
+    public void stop() {
+        sm.unregisterListener(listener);
+        mActivity = null;  // 防止内存泄漏
+    }
+
+
+    /**
+     * 当前屏幕的朝向，是否是横屏
+     *
+     * @return
+     */
+    public boolean isLandscape() {
+        return this.isLandscape;
+    }
+
+
+    /**
+     * 设置系统横竖屏按钮是否生效，默认无效
+     *
+     * @param isEffet
+     */
+    public void setEffetSysSetting(boolean isEffet) {
+        isEffetSysSetting = isEffet;
+    }
+
+    /**
+     * 旋转的开关，全屏按钮点击时调用
+     */
+    public void toggleRotate() {
+
+        /**
+         * 先判断是否已经开启了重力感应，没开启就直接普通的切换横竖屏
+         */
+        if(isEffetSysSetting){
+            try {
+                int isRotate = Settings.System.getInt(mActivity.getContentResolver(), Settings.System.ACCELEROMETER_ROTATION);
+
+                // 如果用户禁用掉了重力感应就直接切换
+                if (isRotate == 0) {
+                    changeOrientation(isLandscape, true);
+                    return;
+                }
+            } catch (Settings.SettingNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        /**
+         * 如果开启了重力i感应就需要修改状态
+         */
+        isOpenSensor = false;
+        isClickFullScreen = true;
+        if (isChangeOrientation) {
+            changeOrientation(isLandscape, false);
+        } else {
+            isLandscape = !isLandscape;
+            changeOrientation(isLandscape, false);
+        }
+    }
 
 }
